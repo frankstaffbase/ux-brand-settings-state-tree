@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand Settings & CSS — Customer State Decision Tree</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f8f8; color: #1a1a1a; font-size: 13px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 12px; margin-bottom: 6px; }
+  .meta { color: #aaa; font-size: 11px; margin-bottom: 24px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #444; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Tree section */
+  .tree-section { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .tree-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 16px; color: #333; }
+
+  .tree-visual { overflow-x: auto; padding-bottom: 4px; }
+  .tree-table { border-collapse: collapse; min-width: 700px; width: 100%; }
+  .tree-table td { padding: 3px 4px; vertical-align: middle; }
+  .tree-node {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    text-align: center; line-height: 1.3; white-space: nowrap;
+    cursor: pointer; transition: opacity 0.15s;
+    border: 1.5px solid transparent;
+  }
+  .tree-node:hover { opacity: 0.8; }
+  .tree-node.root { background: #1e293b; color: #fff; font-size: 12px; padding: 7px 14px; border-radius: 8px; }
+  .tree-node.level-1-old { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+  .tree-node.level-1-new { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+  .tree-node.level-2 { background: #f9fafb; color: #374151; border-color: #d1d5db; font-size: 10.5px; padding: 4px 8px; }
+  .tree-node.state-node { font-size: 10px; padding: 3px 8px; }
+
+  /* State cards grid */
+  .states-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #333; }
+  .states-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 800px) { .states-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 500px) { .states-grid { grid-template-columns: 1fr; } }
+
+  .state-card {
+    border: 1.5px solid #e5e5e5;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .state-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  .state-card.active { border-color: #3b82f6; box-shadow: 0 2px 12px rgba(59,130,246,0.18); }
+
+  .card-header { padding: 10px 12px 8px; }
+  .card-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; margin-bottom: 6px; }
+  .card-title { font-size: 12px; font-weight: 700; line-height: 1.3; }
+  .card-subtitle { font-size: 10.5px; color: #777; margin-top: 2px; line-height: 1.3; }
+
+  .card-body { padding: 10px 12px 12px; background: #fff; }
+  .config-section { margin-bottom: 8px; }
+  .config-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 4px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+  .alert-box { font-size: 10.5px; padding: 5px 8px; border-radius: 5px; margin-top: 6px; line-height: 1.4; display: flex; gap: 5px; align-items: flex-start; }
+
+  .badge-old { background: #fef3c7; color: #92400e; }
+  .badge-new { background: #dbeafe; color: #1e40af; }
+  .badge-trans { background: #f3e8ff; color: #6b21a8; }
+  .badge-future { background: #d1fae5; color: #065f46; }
+
+  .tag-old { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .tag-new { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .tag-warn { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .tag-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .tag-neutral { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+
+  .alert-warn { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .alert-ok { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+  .detail-panel {
+    background: #fff;
+    border: 1.5px solid #3b82f6;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    display: none;
+  }
+  .detail-panel.visible { display: block; }
+  .detail-panel h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-section h5 { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 6px; }
+  .detail-item { font-size: 11.5px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 8px; align-items: flex-start; }
+  .detail-item:last-child { border-bottom: none; }
+
+  .rollout-section { background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 10px; padding: 14px; margin-bottom: 20px; }
+  .rollout-section h3 { font-size: 12px; font-weight: 700; color: #5b21b6; margin-bottom: 8px; }
+  .rollout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 700px) { .rollout-grid { grid-template-columns: 1fr 1fr; } }
+  .rollout-item { background: #fff; border: 1px solid #ddd6fe; border-radius: 7px; padding: 8px 10px; font-size: 10.5px; }
+  .rollout-item strong { display: block; font-size: 11px; margin-bottom: 2px; color: #5b21b6; }
+
+  .separator { height: 1px; background: #e5e7eb; margin: 24px 0; }
+
+  /* Summary prose */
+  .summary-section { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .summary-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .summary-section p { font-size: 12.5px; line-height: 1.7; color: #333; margin-bottom: 10px; }
+  .summary-section p:last-child { margin-bottom: 0; }
+  .summary-section strong { font-weight: 700; }
+  .highlight-box { background: #fef9c3; border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 12px; color: #78350f; }
+  .sources { margin-top: 20px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+  .sources h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 8px; }
+  .sources a { display: block; font-size: 11px; color: #3b82f6; text-decoration: none; margin-bottom: 4px; }
+  .sources a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Brand Settings & CSS — Customer State Decision Tree</h1>
+  <p class="subtitle">All possible states based on customer type · client version · page type · rollout guard</p>
+  <p class="meta">Staffbase System UX · Generated May 2026 · Based on #temp-proj-advanced-styling-concept, #proj-system-ux-trio, #team-strangler-things, Confluence</p>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div> Old Client / Old UX</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> New Client / New UX</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div> Transitional (both active)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div> Future / Clean state</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> ⚠️ Complex / Two-editor problem</div>
+  </div>
+
+  <!-- Tree Overview -->
+  <div class="tree-section">
+    <h3>Decision Path</h3>
+    <div class="tree-visual">
+      <table class="tree-table">
+        <tr>
+          <td colspan="8" style="text-align:center;padding-bottom:8px">
+            <div class="tree-node root">All Customers</div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="4" style="text-align:center;border-right:1px solid #e5e7eb;padding-right:12px">
+            <div style="display:inline-flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:#888">▼</span>
+              <div class="tree-node level-1-old">🏛️ Old Customer</div>
+            </div>
+            <div style="font-size:9.5px;color:#888;margin-top:2px">Existing pages, old CSS, old branding</div>
+          </td>
+          <td colspan="4" style="text-align:center;padding-left:12px">
+            <div style="display:inline-flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:#888">▼</span>
+              <div class="tree-node level-1-new">✨ New Customer</div>
+            </div>
+            <div style="font-size:9.5px;color:#888;margin-top:2px">No old pages, starts on new UX</div>
+          </td>
+        </tr>
+        <tr style="vertical-align:top">
+          <td style="text-align:center;border-right:1px dashed #fde68a;padding:6px 6px 0;width:25%">
+            <div class="tree-node level-2" style="background:#fff7ed;border-color:#fdba74;font-size:10px">Old Client only</div>
+            <div style="font-size:9px;color:#888;margin-top:2px;margin-bottom:4px">new_ux flag OFF</div>
+            <div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+              <div class="tree-node state-node" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;width:100%" onclick="showState(1)">① Old pages only</div>
+              <div class="tree-node state-node" style="background:#fef08a;color:#854d0e;border-color:#fbbf24;width:100%;font-weight:700" onclick="showState(2)">② + Modern Pages ⚠️</div>
+            </div>
+          </td>
+          <td colspan="3" style="text-align:center;padding:6px 6px 0;border-right:1px solid #e5e7eb;width:25%">
+            <div class="tree-node level-2" style="background:#faf5ff;border-color:#c4b5fd;font-size:10px">New Client activated</div>
+            <div style="font-size:9px;color:#888;margin-top:2px;margin-bottom:4px">new_ux flag ON · Rollout Guard →</div>
+            <div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+              <div class="tree-node state-node" style="background:#f3e8ff;color:#6b21a8;border-color:#c4b5fd;width:100%" onclick="showState(3)">③ Rollout Guard: selected users</div>
+              <div class="tree-node state-node" style="background:#ede9fe;color:#5b21b6;border-color:#a78bfa;width:100%" onclick="showState(4)">④ Rollout Guard: all users</div>
+            </div>
+          </td>
+          <td style="text-align:center;padding:6px 6px 0;border-right:1px dashed #a7f3d0;width:25%">
+            <div class="tree-node level-2" style="background:#eff6ff;border-color:#93c5fd;font-size:10px">New Client only</div>
+            <div style="font-size:9px;color:#888;margin-top:2px;margin-bottom:4px">During migration period</div>
+            <div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+              <div class="tree-node state-node" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;width:100%;font-weight:700" onclick="showState(5)">⑤ News/legacy not yet migrated ⚠️</div>
+            </div>
+          </td>
+          <td style="text-align:center;padding:6px 6px 0;width:25%">
+            <div class="tree-node level-2" style="background:#d1fae5;border-color:#6ee7b7;font-size:10px">Fully migrated</div>
+            <div style="font-size:9px;color:#888;margin-top:2px;margin-bottom:4px">Future state</div>
+            <div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+              <div class="tree-node state-node" style="background:#d1fae5;color:#065f46;border-color:#34d399;width:100%" onclick="showState(6)">⑥ All content in new client ✓</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size:10px;color:#aaa;margin-top:10px">Click any state node above or the cards below to expand details</p>
+  </div>
+
+  <!-- Rollout Guard -->
+  <div class="rollout-section">
+    <h3>🛡️ Rollout Guard — What it is & how it fits</h3>
+    <div class="rollout-grid">
+      <div class="rollout-item"><strong>Pre-requisite</strong>Requires <code>new_ux</code> feature flag active (set by Staffbase). Without it, new UX only accessible at <code>/web/</code> path.</div>
+      <div class="rollout-item"><strong>What it controls</strong>Who sees new UX on standard paths (without <code>/web/</code>). Options: selected users/groups or all users. Per-feature toggles: Search, My Groups, Bookmarks, Plugins, Directory.</div>
+      <div class="rollout-item"><strong>Where it lives</strong>Studio → Settings → New UX Rollout. Only visible when <code>new_ux</code> flag is on.</div>
+      <div class="rollout-item"><strong>Brand Settings impact</strong>None directly. The settings split (old/new) exists whenever new client is activated. Rollout Guard only controls which users see which UX.</div>
+      <div class="rollout-item"><strong>Beta purpose</strong>Primarily a Beta-phase tool. May be used post-GA for specific feature rollouts. Long-term may be replaced by feature flags.</div>
+      <div class="rollout-item"><strong>Applies to states</strong>States ③ and ④ only. Not applicable to ①② (no new client) or ⑤⑥ (new customers, always on new UX).</div>
+    </div>
+  </div>
+
+  <!-- State Cards -->
+  <div class="states-section">
+    <h3>All 6 Customer States</h3>
+    <div class="states-grid">
+
+      <div class="state-card" id="card-1" onclick="showState(1)">
+        <div class="card-header" style="background:#fff7ed;border-bottom:1px solid #fed7aa">
+          <div class="card-badge badge-old">① Old Customer</div>
+          <div class="card-title">Old Client · Old Pages Only</div>
+          <div class="card-subtitle">No Content Designer used yet</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-old">Old pages (classic editor)</span></div></div>
+          <div class="config-section"><div class="config-label">Brand Settings in Studio</div><div class="tag-row"><span class="tag tag-old">Old Brand Settings</span></div></div>
+          <div class="config-section"><div class="config-label">CSS Editors</div><div class="tag-row"><span class="tag tag-old">1× Old CSS Editor</span></div></div>
+          <div class="alert-box alert-ok">✓ Simple state — no complexity</div>
+        </div>
+      </div>
+
+      <div class="state-card" id="card-2" onclick="showState(2)">
+        <div class="card-header" style="background:#fef3c7;border-bottom:1px solid #fcd34d">
+          <div class="card-badge badge-old">② Old Customer ⚠️</div>
+          <div class="card-title">Old Client · Old + Modern Pages</div>
+          <div class="card-subtitle">Content Designer in use, new client NOT activated</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-old">Old pages</span><span class="tag tag-new">Modern pages (ShadowDOM)</span></div></div>
+          <div class="config-section"><div class="config-label">Brand Settings in Studio</div><div class="tag-row"><span class="tag tag-old">Old Brand Settings</span><span class="tag tag-new">New Brand Settings</span></div></div>
+          <div class="config-section"><div class="config-label">CSS in Old UX Settings</div><div class="tag-row"><span class="tag tag-warn">Tab 1: Old CSS</span><span class="tag tag-new">Tab 2: New Sanitized CSS</span></div></div>
+          <div class="alert-box alert-warn">⚠️ Two-editor problem — shown as tabs. Old CSS = rest of platform. New CSS = Content Designer pages.</div>
+        </div>
+      </div>
+
+      <div class="state-card" id="card-3" onclick="showState(3)">
+        <div class="card-header" style="background:#f3e8ff;border-bottom:1px solid #ddd6fe">
+          <div class="card-badge badge-trans">③ Old Customer — Transitional</div>
+          <div class="card-title">New Client · Rollout Guard: Selected Users</div>
+          <div class="card-subtitle">new_ux flag ON · test group sees new UX</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-old">Old pages</span><span class="tag tag-new">Modern pages</span></div></div>
+          <div class="config-section"><div class="config-label">Old UX Settings</div><div class="tag-row"><span class="tag tag-old">Old Brand Settings</span><span class="tag tag-old">Old CSS</span></div></div>
+          <div class="config-section"><div class="config-label">New UX Settings</div><div class="tag-row"><span class="tag tag-new">New Brand Settings</span><span class="tag tag-new">New CSS</span></div></div>
+          <div class="alert-box alert-info">✓ Clean separation — Old settings → Old CSS. New settings → New CSS.</div>
+        </div>
+      </div>
+
+      <div class="state-card" id="card-4" onclick="showState(4)">
+        <div class="card-header" style="background:#ede9fe;border-bottom:1px solid #c4b5fd">
+          <div class="card-badge badge-trans">④ Old Customer — Full Rollout</div>
+          <div class="card-title">New Client · Rollout Guard: All Users</div>
+          <div class="card-subtitle">All users see new UX · old pages still exist</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-old">Old pages (decreasing)</span><span class="tag tag-new">Modern pages</span></div></div>
+          <div class="config-section"><div class="config-label">Old UX Settings (still needed!)</div><div class="tag-row"><span class="tag tag-old">Old Brand Settings</span><span class="tag tag-old">Old CSS</span></div></div>
+          <div class="config-section"><div class="config-label">New UX Settings</div><div class="tag-row"><span class="tag tag-new">New Brand Settings</span><span class="tag tag-new">New CSS</span></div></div>
+          <div class="alert-box alert-info">Same structure as ③. Old CSS will be phased out as old pages migrate.</div>
+        </div>
+      </div>
+
+      <div class="state-card" id="card-5" onclick="showState(5)">
+        <div class="card-header" style="background:#dbeafe;border-bottom:1px solid #93c5fd">
+          <div class="card-badge badge-new">⑤ New Customer ⚠️ During Migration</div>
+          <div class="card-title">New Client · Modern Pages + Legacy Content</div>
+          <div class="card-subtitle">News/classic content types not yet in new client</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-new">Modern pages (Content Designer)</span><span class="tag tag-warn">News/legacy (old rendering)</span></div></div>
+          <div class="config-section"><div class="config-label">Brand Settings in Studio</div><div class="tag-row"><span class="tag tag-new">New Brand Settings only</span></div></div>
+          <div class="config-section"><div class="config-label">CSS in New UX Settings</div><div class="tag-row"><span class="tag tag-new">Tab 1: New CSS</span><span class="tag tag-warn">Tab 2: Old CSS (for news/legacy)</span></div></div>
+          <div class="alert-box alert-warn">⚠️ Two-editor problem inside New UX settings. Needed until News etc. are fully migrated.</div>
+        </div>
+      </div>
+
+      <div class="state-card" id="card-6" onclick="showState(6)">
+        <div class="card-header" style="background:#d1fae5;border-bottom:1px solid #6ee7b7">
+          <div class="card-badge badge-future">⑥ New Customer — Future ✓</div>
+          <div class="card-title">New Client · All Content Migrated</div>
+          <div class="card-subtitle">Everything in new client · clean state</div>
+        </div>
+        <div class="card-body">
+          <div class="config-section"><div class="config-label">Pages</div><div class="tag-row"><span class="tag tag-ok">Modern pages only</span></div></div>
+          <div class="config-section"><div class="config-label">Brand Settings in Studio</div><div class="tag-row"><span class="tag tag-ok">New Brand Settings only</span></div></div>
+          <div class="config-section"><div class="config-label">CSS Editors</div><div class="tag-row"><span class="tag tag-ok">1× New CSS Editor only</span></div></div>
+          <div class="alert-box alert-ok">✓ Clean final state — one settings section, one CSS editor, no legacy complexity.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detail-panel">
+      <h4 id="detail-title"></h4>
+      <div class="detail-grid" id="detail-grid"></div>
+    </div>
+  </div>
+
+  <!-- Summary table -->
+  <div class="separator"></div>
+  <div class="tree-section">
+    <h3>At-a-Glance Summary</h3>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#f3f4f6">
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">State</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">Old UX Brand Settings</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">New UX Brand Settings</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">CSS Editors</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">Rollout Guard</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid #e5e7eb">Complexity</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#fff7ed">① Old / Old / Old pages</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ Old BS</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">—</td><td style="padding:6px 10px;border:1px solid #e5e7eb">1× Old CSS</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">N/A</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#16a34a;font-weight:600">Low</td></tr>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#fef3c7;font-weight:600">② Old / Old / Old+Modern ⚠️</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ Old BS</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ New BS</td><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600;color:#b45309">2× in Old UX (tabs)</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">N/A</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#dc2626;font-weight:600">⚠️ High</td></tr>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#f3e8ff">③ Old / New / Selected users</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ Old BS + Old CSS</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ New BS + New CSS</td><td style="padding:6px 10px;border:1px solid #e5e7eb">1× per section</td><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600;color:#7c3aed">✅ Selected</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#ca8a04;font-weight:600">Medium</td></tr>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#ede9fe">④ Old / New / All users</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ Old BS + Old CSS</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ New BS + New CSS</td><td style="padding:6px 10px;border:1px solid #e5e7eb">1× per section</td><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600;color:#7c3aed">✅ All</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#ca8a04;font-weight:600">Medium</td></tr>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#dbeafe;font-weight:600">⑤ New / New / Modern+Legacy ⚠️</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">—</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ New BS</td><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600;color:#b45309">2× in New UX (tabs)</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">N/A</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#dc2626;font-weight:600">⚠️ High</td></tr>
+          <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;background:#d1fae5">⑥ New / New / All migrated ✓</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">—</td><td style="padding:6px 10px;border:1px solid #e5e7eb">✅ New BS only</td><td style="padding:6px 10px;border:1px solid #e5e7eb">1× New CSS only</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#aaa">N/A</td><td style="padding:6px 10px;border:1px solid #e5e7eb;color:#16a34a;font-weight:600">✓ Low</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Summary prose -->
+  <div class="summary-section">
+    <h3>Key Findings & Design Implications</h3>
+
+    <p>Research across <strong>#temp-proj-advanced-styling-concept</strong>, <strong>#proj-system-ux-trio</strong>, <strong>#team-strangler-things</strong>, and Confluence surfaced six distinct customer states that each have a different combination of brand settings and CSS editors visible in Studio.</p>
+
+    <div class="highlight-box">⚠️ The "two CSS editor problem" appears <strong>twice</strong> — in State ② (old customer, old client, using Content Designer) and State ⑤ (new customer, new client, but news/legacy content not yet migrated). Both cases use a <strong>tabbed interface</strong>, confirmed in the #temp-proj-advanced-styling-concept alignment.</div>
+
+    <p><strong>State ② is the hardest to design for right now.</strong> Old customers who adopted the Content Designer but don't yet have the new client end up with two CSS editors inside the Old UX settings. The team aligned that these should be tabs, not separate text areas. Tab labels should describe the <em>affected content</em>, not "Old/New UX" (which Frank Erler and Maximilian flagged as meaningless to admins).</p>
+
+    <p><strong>States ③ and ④ have a clean separation.</strong> Once the new client is activated, old CSS stays in old settings, new CSS goes in new settings — no tabs needed. This was Frank Erler's proposal and was validated by Szymon Soltysiak: "The 2 CSS editor problem only applies to Old Customer, Old UX + Modern pages."</p>
+
+    <p><strong>State ⑤ is the underappreciated edge case.</strong> New customers still need the old CSS editor for News articles, which are estimated to stay unrenovated until at least H1 2027. Without it, News layout customization becomes impossible for new customers — Mikael Head called this "a no-go."</p>
+
+    <p><strong>The Rollout Guard doesn't change the brand settings configuration</strong> — it only controls who sees which UX on standard paths. The settings split is determined purely by whether the <code>new_ux</code> flag is active. The Rollout Guard applies to States ③ and ④ only.</p>
+
+    <p>The long-term direction is State ⑥: one settings section, one CSS editor, guided by the 3-Tier customization model (Tier 1: Studio Brand Settings → Tier 2: Design tokens → Tier 3: Contracted CSS editor). Target is 70% of customers completing migration without needing Tier 3 CSS at Open Beta.</p>
+
+    <div class="sources">
+      <h4>Sources</h4>
+      <a href="https://staffbasehq.slack.com/archives/C0AF3J3J4LV/p1776689361123859" target="_blank">#temp-proj-advanced-styling-concept — Custom CSS alignment thread</a>
+      <a href="https://staffbasehq.slack.com/archives/C08PS82FWDU" target="_blank">#proj-system-ux-trio — Program status and brand settings context</a>
+      <a href="https://staffbasehq.slack.com/archives/C08UA7PP3MM" target="_blank">#team-strangler-things — Rollout Guard technical details</a>
+      <a href="https://mitarbeiterapp.atlassian.net/wiki/spaces/PM/pages/6875676711" target="_blank">Confluence: Client Rewrite & Migration CSM Overview</a>
+      <a href="https://mitarbeiterapp.atlassian.net/wiki/spaces/PM/pages/6889996371" target="_blank">Confluence: Advanced Theming & Customization Draft</a>
+      <a href="https://www.figma.com/design/KZeRc9TStMiDQMTd2MKq8Y/" target="_blank">Figma: Brand Settings Discovery</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const stateDetails = {
+  1: {
+    title: "① Old Customer · Old Client · Old Pages Only",
+    context: "Customer uses only the classic editor. No Content Designer adoption yet. The 'untouched' baseline state.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "🎨", text: "Old Intranet UX Brand Settings tab (colors, logo, fonts, old CSS)" },
+        { icon: "✏️", text: "Single CSS editor — no confusion, one field for everything" },
+        { icon: "🚫", text: "No New UX Settings tab visible at all" },
+      ]},
+      { title: "Technical setup", items: [
+        { icon: "🖥️", text: "All pages served by old frontend (legacy client)" },
+        { icon: "📄", text: "Old pages = HTML/widgets from classic editor, no ShadowDOM" },
+        { icon: "🎭", text: "CSS applies globally — no isolation boundaries" },
+      ]},
+      { title: "Design touchpoints needed", items: [
+        { icon: "📌", text: "No immediate action needed — but prepare migration messaging" },
+        { icon: "💡", text: "Educate about upcoming Content Designer and New Brand Settings" },
+      ]},
+      { title: "Rollout Guard", items: [
+        { icon: "🔒", text: "Not applicable — new_ux feature flag not active" },
+      ]}
+    ]
+  },
+  2: {
+    title: "② Old Customer · Old Client · Old + Modern Pages ⚠️ THE COMPLEX CASE",
+    context: "Customer adopted the Content Designer but has NOT been given the new client yet. Modern pages are rendered in the old frontend via ShadowDOM. This is the 'two CSS editor problem'.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "🎨", text: "Old UX Brand Settings (for all platform styling)" },
+        { icon: "🔵", text: "New Brand Settings also visible (applies to modern pages)" },
+        { icon: "⚠️", text: "TWO CSS editors in Old UX settings, shown as TABS" },
+        { icon: "📑", text: "Tab 1 (Old CSS): for classic pages and rest of platform" },
+        { icon: "📑", text: "Tab 2 (New Sanitized CSS): for Content Designer pages only" },
+      ]},
+      { title: "Key decisions (from Slack alignment)", items: [
+        { icon: "✅", text: "Agreed: Show 2 editors as tabs, NOT as two separate text areas" },
+        { icon: "✅", text: "Label Tab 1: 'For classic pages & rest of platform'" },
+        { icon: "✅", text: "Label Tab 2: 'For Content Designer pages — travels with you to new UX'" },
+        { icon: "⚠️", text: "This state ONLY applies to Old Customer + Old Client. Once new client activated, split into separate settings sections." },
+      ]},
+      { title: "Open design questions", items: [
+        { icon: "❓", text: "How to name the tabs so admins understand scope without knowing 'UX'" },
+        { icon: "❓", text: "How to visually communicate the 'temporary' nature of old CSS tab" },
+      ]},
+      { title: "Technical setup", items: [
+        { icon: "🖥️", text: "Modern pages rendered in old frontend using ShadowDOM isolation" },
+        { icon: "🔧", text: "New sanitized CSS injected into ShadowDOM for modern pages" },
+        { icon: "📦", text: "Old CSS continues to style legacy pages globally" },
+      ]}
+    ]
+  },
+  3: {
+    title: "③ Old Customer · New Client Activated · Rollout Guard: Selected Users",
+    context: "Customer has been given the new_ux feature flag. Using the Rollout Guard to test new UX with a defined group before full rollout. Most common during closed/open beta.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "🟠", text: "Old Intranet UX Settings tab — still visible and active" },
+        { icon: "🔵", text: "New UX Settings tab — now available" },
+        { icon: "✂️", text: "Clean CSS split: Old CSS stays in Old UX settings, New CSS goes in New UX settings" },
+        { icon: "🛡️", text: "Rollout Guard UI: select specific users/groups to see new UX on standard paths" },
+      ]},
+      { title: "Rollout Guard mechanics", items: [
+        { icon: "👥", text: "Users in rollout group: see New UX at standard URL (no /web/ needed)" },
+        { icon: "👤", text: "Users NOT in group: still see Old UX at standard URL" },
+        { icon: "🌐", text: "Everyone can access new UX via /web/ path regardless of rollout" },
+        { icon: "🔧", text: "Per-feature toggles: Search, My Groups, Bookmarks, Plugins, Directory" },
+      ]},
+      { title: "CSS & Brand Settings", items: [
+        { icon: "🎨", text: "Old UX Settings: Old Brand Settings + 1× Old CSS editor" },
+        { icon: "✨", text: "New UX Settings: New Brand Settings (Tier 1) + 1× New CSS editor" },
+        { icon: "✅", text: "Confirmed: Old Settings = Old CSS only. New Settings = New CSS only." },
+      ]},
+      { title: "Design touchpoints", items: [
+        { icon: "📌", text: "Explain the two-settings structure to admins clearly" },
+        { icon: "💡", text: "Help admins understand WHICH pages are affected by which settings" },
+      ]}
+    ]
+  },
+  4: {
+    title: "④ Old Customer · New Client · Rollout Guard: All Users",
+    context: "Full rollout of new UX to all users. Old pages still exist and are being migrated. Structurally identical to State ③ but broader reach.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "🟠", text: "Old Intranet UX Settings: Still required for old pages not yet migrated" },
+        { icon: "🔵", text: "New UX Settings: Active for all new client content" },
+        { icon: "✂️", text: "Clean separation maintained: Old CSS in old section, New CSS in new section" },
+      ]},
+      { title: "What happens to old pages", items: [
+        { icon: "📄", text: "Old (classic editor) pages still exist and use old CSS/old brand settings" },
+        { icon: "🔄", text: "Page migration ongoing — old pages gradually moved to Content Designer" },
+        { icon: "⏳", text: "Old UX settings deprecated gradually as pages migrate" },
+      ]},
+      { title: "Key difference from ③", items: [
+        { icon: "👥", text: "Everyone sees new UX — no selective rollout, no test group" },
+        { icon: "🚨", text: "Higher stakes: CSS/brand issues in new UX visible to all users" },
+      ]},
+      { title: "Design touchpoints", items: [
+        { icon: "📌", text: "Consider marking Old UX settings as 'Deprecated — will be removed once pages migrate'" },
+        { icon: "💡", text: "Surface progress indicator: X% of your pages are still using old UX settings" },
+      ]}
+    ]
+  },
+  5: {
+    title: "⑤ New Customer · New Client · Modern Pages + Legacy Content ⚠️",
+    context: "New customers start directly on the new client with no access to old UX settings. BUT: News articles and other content types still render in old frontend — creating the second instance of the two-editor problem, this time inside New UX settings.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "✨", text: "New UX Settings ONLY — no old UX settings section at all" },
+        { icon: "⚠️", text: "TWO CSS editors inside New UX settings, shown as TABS" },
+        { icon: "📑", text: "Tab 1 (New Sanitized CSS): for modern pages, new client content" },
+        { icon: "📑", text: "Tab 2 (Old CSS): for news articles and legacy content types still in old rendering" },
+      ]},
+      { title: "Why old CSS is still needed for new customers", items: [
+        { icon: "📰", text: "News articles still use classic editor rendering (migration ~H1 2027)" },
+        { icon: "💡", text: "News stage layouts are often customized with CSS — must remain possible" },
+        { icon: "🚫", text: "Without old CSS tab: new customers cannot customize News at all — 'a no-go' (Mikael)" },
+      ]},
+      { title: "Design touchpoints", items: [
+        { icon: "📌", text: "Same tab UI pattern as State ② — consistency helps" },
+        { icon: "💡", text: "Label Tab 2 clearly as 'For legacy features (News, etc.) — temporary'" },
+        { icon: "🔍", text: "Scope indicator: 'This CSS applies to News articles only'" },
+      ]},
+      { title: "Transition to State ⑥", items: [
+        { icon: "🔄", text: "Once News and all content types fully migrated: old CSS tab removed" },
+        { icon: "📢", text: "Communicate deprecation of old CSS tab in advance" },
+      ]}
+    ]
+  },
+  6: {
+    title: "⑥ New Customer · New Client · All Content Migrated ✓",
+    context: "The target end state. Everything in new client, all content types modernized. Clean, simple, no legacy complexity. This is the design North Star.",
+    sections: [
+      { title: "What the Admin sees in Studio", items: [
+        { icon: "✨", text: "New UX Brand Settings only — one section, no old/new tabs" },
+        { icon: "✅", text: "Single CSS editor (New Sanitized CSS) with documented stable selectors" },
+        { icon: "🎨", text: "Full Tier 1: colors, typography, logos, buttons, radius, shadows, content width, nav style, footer" },
+      ]},
+      { title: "CSS model (3-Tier)", items: [
+        { icon: "1️⃣", text: "Tier 1: Studio Brand Settings — self-service, no CSS needed" },
+        { icon: "2️⃣", text: "Tier 2: Design tokens / CSS custom properties — stable API" },
+        { icon: "3️⃣", text: "Tier 3: New CSS editor — contracted, documented, sanitized selectors" },
+        { icon: "🔒", text: "Linting: no !important, no nth-child overrides, no internal selectors" },
+      ]},
+      { title: "Success metrics (Confluence draft)", items: [
+        { icon: "📊", text: "70% of customers complete migration WITHOUT needing Tier 3 CSS" },
+        { icon: "📊", text: "90% reduction in CSS-related support tickets vs. old client" },
+        { icon: "📊", text: "80+ NPS from admins on theming ease of use" },
+      ]},
+      { title: "What's gone", items: [
+        { icon: "🗑️", text: "Old CSS editor — fully removed" },
+        { icon: "🗑️", text: "Old UX Brand Settings tab — removed" },
+        { icon: "🗑️", text: "ShadowDOM iframe complexity for modern pages — removed" },
+      ]}
+    ]
+  }
+};
+
+let activeState = null;
+
+function showState(n) {
+  if (activeState === n) {
+    activeState = null;
+    document.getElementById('detail-panel').classList.remove('visible');
+    document.querySelectorAll('.state-card').forEach(c => c.classList.remove('active'));
+    return;
+  }
+  activeState = n;
+  document.querySelectorAll('.state-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + n).classList.add('active');
+
+  const d = stateDetails[n];
+  document.getElementById('detail-title').textContent = d.title;
+
+  let html = '';
+  if (d.context) {
+    html += `<div style="grid-column:1/-1;font-size:11.5px;color:#555;background:#f9fafb;border-radius:6px;padding:8px 12px;margin-bottom:10px;line-height:1.5">${d.context}</div>`;
+  }
+  d.sections.forEach(s => {
+    html += `<div class="detail-section"><h5>${s.title}</h5>`;
+    s.items.forEach(item => {
+      html += `<div class="detail-item"><span style="flex-shrink:0;width:14px;text-align:center">${item.icon}</span><span>${item.text}</span></div>`;
+    });
+    html += '</div>';
+  });
+
+  document.getElementById('detail-grid').innerHTML = html;
+  document.getElementById('detail-panel').classList.add('visible');
+  document.getElementById('detail-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>
